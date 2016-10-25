@@ -15,20 +15,19 @@
  */
 package com.esri.samples.symbology.symbol_dictionary;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+
+import javafx.fxml.FXML;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextField;
+import javafx.scene.text.Text;
 
 import com.esri.arcgisruntime.concurrent.ListenableFuture;
 import com.esri.arcgisruntime.symbology.DictionarySymbolStyle;
 import com.esri.arcgisruntime.symbology.SymbolStyleSearchParameters;
 import com.esri.arcgisruntime.symbology.SymbolStyleSearchResult;
-
-import javafx.application.Platform;
-import javafx.fxml.FXML;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
-import javafx.scene.text.Text;
 
 public class SymbolDictionaryController {
 
@@ -41,6 +40,7 @@ public class SymbolDictionaryController {
   @FXML private TextField keyField;
   @FXML private Text searchResultsFound;
 
+  private List<SymbolView> view;
   private DictionarySymbolStyle dictionarySymbol;
   private SymbolStyleSearchParameters searchParameters;
 
@@ -51,6 +51,7 @@ public class SymbolDictionaryController {
     // loads a specification for the symbol dictionary
     dictionarySymbol = new DictionarySymbolStyle("mil2525d");
     dictionarySymbol.loadAsync();
+    view = new ArrayList<>();
   }
 
   /**
@@ -70,18 +71,26 @@ public class SymbolDictionaryController {
     searchParameters.getKeys().add(keyField.getText());
 
     // search for any matches in dictionary
-    ListenableFuture<List<SymbolStyleSearchResult>> searchResult = dictionarySymbol.searchSymbolsAsync(searchParameters);
+    ListenableFuture<List<SymbolStyleSearchResult>> searchResult =
+        dictionarySymbol.searchSymbolsAsync(searchParameters);
     searchResult.addDoneListener(() -> {
       try {
         List<SymbolStyleSearchResult> symbolResults = searchResult.get();
-
-        Platform.runLater(() -> {
-          // create and add results to listview
-          symbolResults.stream().map(SymbolView::new).collect(Collectors.toCollection(() -> resultList.getItems()));
-
-          // show result count
-          searchResultsFound.setText(String.valueOf(resultList.getItems().size()));
+        symbolResults.forEach(result -> {
+          new Thread(() -> {
+            view.add(new SymbolView(result));
+          }).start();
         });
+
+        //                Platform.runLater(() -> {
+        // create and add results to listview
+        //        symbolResults.stream().map(SymbolView::new).collect(Collectors.toCollection(() -> resultList.getItems()));
+
+        // show result count
+        searchResultsFound.setText(String.valueOf(symbolResults.size()));
+        System.out.println("View: " + view.size());
+        resultList.getItems().addAll(view);
+        //                });
 
       } catch (ExecutionException | InterruptedException e) {
         e.printStackTrace();
